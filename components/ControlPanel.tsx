@@ -36,18 +36,18 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
   const languages = [
-    { code: 'Japanese', label: 'Japanese' },
-    { code: 'English', label: 'English' },
-    { code: 'Spanish', label: 'Spanish' },
-    { code: 'Chinese', label: 'Chinese' },
-    { code: 'Korean', label: 'Korean' },
-    { code: 'French', label: 'French' },
-    { code: 'German', label: 'German' },
+    { code: 'Japanese', label: '日本語' },
+    { code: 'English', label: '英語' },
+    { code: 'Spanish', label: 'スペイン語' },
+    { code: 'Chinese', label: '中国語' },
+    { code: 'Korean', label: '韓国語' },
+    { code: 'French', label: 'フランス語' },
+    { code: 'German', label: 'ドイツ語' },
   ];
 
   if (isCollapsed) {
     return (
-      <button 
+      <button
         onClick={() => setIsCollapsed(false)}
         className="fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-full shadow-lg opacity-50 hover:opacity-100 transition-opacity"
       >
@@ -61,7 +61,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold flex items-center gap-2">
           <Settings size={18} />
-          OBS Translator
+          OBS 翻訳ツール
         </h2>
         <button onClick={() => setIsCollapsed(true)} className="text-gray-400 hover:text-white">
           <Minimize2 size={18} />
@@ -81,20 +81,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <button
             onClick={onConnect}
             disabled={isConnecting}
-            className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${
-              isConnecting 
-                ? 'bg-gray-600 cursor-wait' 
+            className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${isConnecting
+                ? 'bg-gray-600 cursor-wait'
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-            }`}
+              }`}
           >
-            {isConnecting ? 'Connecting...' : <><Mic size={20} /> Start Translation</>}
+            {isConnecting ? '接続中...' : <><Mic size={20} /> 翻訳開始</>}
           </button>
         ) : (
           <button
             onClick={onDisconnect}
             className="w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white transition-colors"
           >
-            <MicOff size={20} /> Stop Translation
+            <MicOff size={20} /> 翻訳停止
           </button>
         )}
       </div>
@@ -103,7 +102,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         {/* Languages */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Source (Voice)</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">入力言語 (音声)</label>
             <select
               value={config.sourceLang}
               onChange={(e) => setConfig({ ...config, sourceLang: e.target.value })}
@@ -114,7 +113,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Target (Text)</label>
+            <label className="block text-xs font-medium text-gray-400 mb-1">出力言語 (字幕)</label>
             <select
               value={config.targetLang}
               onChange={(e) => setConfig({ ...config, targetLang: e.target.value })}
@@ -128,7 +127,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         {/* Play Audio Toggle */}
         <div className="flex items-center justify-between bg-gray-800 p-2 rounded border border-gray-700">
-          <span className="text-sm">TTS Audio Feedback</span>
+          <span className="text-sm">音声読み上げ (TTS)</span>
           <button
             onClick={() => setPlayAudio(!playAudio)}
             className={`w-12 h-6 rounded-full p-1 transition-colors ${playAudio ? 'bg-emerald-500' : 'bg-gray-600'}`}
@@ -139,20 +138,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         {/* Background Selector */}
         <div>
-          <label className="block text-xs font-medium text-gray-400 mb-2">Chroma Key Background</label>
+          <label className="block text-xs font-medium text-gray-400 mb-2">背景色 (クロマキー)</label>
           <div className="flex gap-2">
             {[
-              { mode: BackgroundMode.NORMAL, color: 'bg-gray-800', label: 'Dark' },
-              { mode: BackgroundMode.GREEN, color: 'bg-[#00FF00]', label: 'Green' },
-              { mode: BackgroundMode.BLUE, color: 'bg-[#0000FF]', label: 'Blue' },
-              { mode: BackgroundMode.MAGENTA, color: 'bg-[#FF00FF]', label: 'Mag' },
+              { mode: BackgroundMode.NORMAL, color: 'bg-gray-800', label: 'ダーク' },
+              { mode: BackgroundMode.GREEN, color: 'bg-[#00FF00]', label: 'グリーン' },
+              { mode: BackgroundMode.BLUE, color: 'bg-[#0000FF]', label: 'ブルー' },
+              { mode: BackgroundMode.MAGENTA, color: 'bg-[#FF00FF]', label: 'マゼンタ' },
             ].map((option) => (
               <button
                 key={option.mode}
                 onClick={() => setBgMode(option.mode)}
-                className={`flex-1 h-8 rounded border-2 transition-all ${
-                  bgMode === option.mode ? 'border-white scale-105' : 'border-transparent opacity-70 hover:opacity-100'
-                } ${option.color}`}
+                className={`flex-1 h-8 rounded border-2 transition-all ${bgMode === option.mode ? 'border-white scale-105' : 'border-transparent opacity-70 hover:opacity-100'
+                  } ${option.color}`}
                 title={option.label}
               />
             ))}
@@ -161,21 +159,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         {/* Text Style Selector */}
         <div>
-          <label className="block text-xs font-medium text-gray-400 mb-2">Text Style</label>
+          <label className="block text-xs font-medium text-gray-400 mb-2">字幕スタイル</label>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { style: TextStyle.SIMPLE, label: 'Plain' },
-              { style: TextStyle.OUTLINE, label: 'Outline' },
-              { style: TextStyle.BOX, label: 'Box' },
+              { style: TextStyle.SIMPLE, label: '標準' },
+              { style: TextStyle.OUTLINE, label: '縁取り' },
+              { style: TextStyle.BOX, label: 'ボックス' },
             ].map((option) => (
               <button
                 key={option.style}
                 onClick={() => setTextStyle(option.style)}
-                className={`px-2 py-1.5 text-xs rounded border transition-colors ${
-                  textStyle === option.style
+                className={`px-2 py-1.5 text-xs rounded border transition-colors ${textStyle === option.style
                     ? 'bg-emerald-600 border-emerald-500 text-white'
                     : 'bg-gray-800 border-gray-700 hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 {option.label}
               </button>

@@ -34,17 +34,17 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, bgMode, 
   const isEmpty = !text || text.trim().length === 0;
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="w-full h-full flex flex-col justify-end items-center p-8 pb-16 overflow-y-auto no-scrollbar scroll-smooth"
     >
       <div className="max-w-[90%] text-center transition-all duration-300 ease-in-out">
         {isEmpty ? (
           <div className={`text-3xl opacity-30 font-semibold ${bgMode === BackgroundMode.NORMAL ? 'text-white' : 'text-black'}`}>
-            Waiting for audio...
+            音声待機中...
           </div>
         ) : (
-          <span 
+          <span
             className={`text-5xl md:text-6xl lg:text-7xl leading-tight break-words ${getTextClasses()}`}
           >
             {text}

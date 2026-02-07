@@ -44,14 +44,10 @@ export const useGeminiLive = () => {
 
       // Connect to Translation Server
       let wsUrl = 'ws://localhost:8080';
-      const meta = import.meta as any;
-      if (meta.env && meta.env.VITE_BACKEND_URL) {
-        wsUrl = meta.env.VITE_BACKEND_URL;
-      } else if (window.location.protocol.startsWith('http')) {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-          // Remote logic
-        }
+
+      // Check for environment variable (Vite)
+      if (import.meta.env.VITE_BACKEND_URL) {
+        wsUrl = import.meta.env.VITE_BACKEND_URL;
       }
 
       const socket = new WebSocket(wsUrl);

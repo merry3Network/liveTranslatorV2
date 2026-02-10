@@ -4,11 +4,13 @@ import { BackgroundMode, TextStyle } from '../types';
 interface SubtitleDisplayProps {
   text: string;
   inputText?: string;
+  interimText?: string;
+  isListening?: boolean;
   bgMode: BackgroundMode;
   textStyle: TextStyle;
 }
 
-export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputText, bgMode, textStyle }) => {
+export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputText, interimText, isListening, bgMode, textStyle }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom if text gets too long
@@ -16,7 +18,7 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [text, inputText]);
+  }, [text, inputText, interimText]);
 
   // Determine text color and rendering classes based on style
   const getTextClasses = () => {
@@ -32,7 +34,7 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
     }
   };
 
-  const isEmpty = (!text || text.trim().length === 0) && (!inputText || inputText.trim().length === 0);
+  const isEmpty = (!text || text.trim().length === 0) && (!inputText || inputText.trim().length === 0) && (!interimText || interimText.trim().length === 0);
 
   return (
     <div
@@ -41,16 +43,31 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
     >
       <div className="max-w-[90%] text-center transition-all duration-300 ease-in-out flex flex-col gap-4">
         {isEmpty ? (
-          <div className={`text-3xl opacity-30 font-semibold ${bgMode === BackgroundMode.NORMAL ? 'text-white' : 'text-black'}`}>
-            音声待機中...
+          <div className={`text-3xl font-semibold flex items-center justify-center gap-3 ${bgMode === BackgroundMode.NORMAL ? 'text-white' : 'text-black'}`}>
+            {isListening ? (
+              <>
+                <span className="inline-block w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="opacity-50">音声を聞いています...</span>
+              </>
+            ) : (
+              <span className="opacity-30">音声待機中...</span>
+            )}
           </div>
         ) : (
           <>
-            {/* Input Text (Source) */}
+            {/* Input Text (Source) — confirmed recognition */}
             {inputText && (
               <div className={`text-2xl md:text-3xl lg:text-4xl opacity-80 mb-2 ${bgMode === BackgroundMode.NORMAL ? 'text-gray-400' : 'text-white text-outline-black'
                 }`}>
                 {inputText}
+              </div>
+            )}
+
+            {/* Interim Text — currently being spoken (real-time feedback) */}
+            {interimText && (
+              <div className={`text-xl md:text-2xl lg:text-3xl opacity-40 italic ${bgMode === BackgroundMode.NORMAL ? 'text-gray-500' : 'text-white text-outline-black'
+                }`}>
+                {interimText}...
               </div>
             )}
 
@@ -65,6 +82,16 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
           </>
         )}
       </div>
+
+      {/* Listening indicator when text is showing */}
+      {!isEmpty && isListening && (
+        <div className="mt-4 flex items-center gap-2 opacity-50">
+          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className={`text-xs ${bgMode === BackgroundMode.NORMAL ? 'text-gray-400' : 'text-white'}`}>
+            リスニング中
+          </span>
+        </div>
+      )}
     </div>
   );
 };

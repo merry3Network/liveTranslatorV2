@@ -19,9 +19,11 @@ const App: React.FC = () => {
   const {
     isConnected,
     isConnecting,
+    isListening,
     error,
     currentText,
     inputText,
+    interimText,
     connect,
     disconnect,
     simulateVoiceInput
@@ -74,6 +76,8 @@ const App: React.FC = () => {
         <SubtitleDisplay
           text={currentText}
           inputText={inputText}
+          interimText={interimText}
+          isListening={isListening}
           bgMode={bgMode}
           textStyle={textStyle}
         />

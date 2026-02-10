@@ -15,12 +15,20 @@ declare global {
   }
 }
 
+// Restart configuration
+const RESTART_DELAY_MS = 150;
+const MAX_RAPID_RESTARTS = 5;
+const RAPID_RESTART_WINDOW_MS = 3000;
+const BACKOFF_DELAY_MS = 2000;
+
 export const useGeminiLive = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentText, setCurrentText] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
+  const [interimText, setInterimText] = useState<string>('');
 
   const socketRef = useRef<WebSocket | null>(null);
   const recognitionRef = useRef<any | null>(null);
@@ -29,18 +37,28 @@ export const useGeminiLive = () => {
   const currentTranscriptionRef = useRef<string>('');
   const personaRef = useRef<string>('none');
 
+  // Restart management
+  const isActiveRef = useRef(false); // true = user wants recognition running
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restartTimestampsRef = useRef<number[]>([]);
+  const sourceLangRef = useRef<string>('Japanese');
+  const targetLangRef = useRef<string>('English');
+
   const connect = useCallback(async ({ sourceLang, targetLang, persona, playAudio }: UseGeminiLiveProps) => {
     try {
       if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-        throw new Error("Browser does not support Speech Recognition");
+        throw new Error("ブラウザが音声認識に対応していません");
       }
 
       setIsConnecting(true);
       setError(null);
       setCurrentText('');
       setInputText('');
+      setInterimText('');
       currentTranscriptionRef.current = '';
       personaRef.current = persona;
+      sourceLangRef.current = sourceLang;
+      targetLangRef.current = targetLang;
 
       // Connect to Translation Server
       let wsUrl = 'ws://localhost:8080';
@@ -63,19 +81,16 @@ export const useGeminiLive = () => {
           case 'connected':
             setIsConnected(true);
             setIsConnecting(false);
+            isActiveRef.current = true;
             startSpeechRecognition(sourceLang, targetLang);
             break;
           case 'text':
             if (msg.content) {
-              // Replace previous text with new translation
               currentTranscriptionRef.current = msg.content;
               setCurrentText(currentTranscriptionRef.current);
             }
             break;
           case 'turn_complete':
-            // No need to append space or do anything for replace mode
-            // currentTranscriptionRef.current += " ";
-            // setCurrentText(currentTranscriptionRef.current);
             break;
           case 'error':
             setError(msg.message);
@@ -86,7 +101,7 @@ export const useGeminiLive = () => {
 
       socket.onerror = (e) => {
         console.error("WebSocket Error", e);
-        setError("Connection failed. Ensure backend server is running.");
+        setError("接続失敗。バックエンドサーバーが起動しているか確認してください。");
         stopEverything();
       };
 
@@ -96,18 +111,66 @@ export const useGeminiLive = () => {
 
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Failed to start session");
+      setError(err.message || "セッション開始に失敗しました");
       stopEverything();
     }
   }, []);
 
+  /**
+   * Schedule a delayed restart of speech recognition.
+   * Uses backoff if too many rapid restarts are detected.
+   */
+  const scheduleRestart = useCallback((sourceLang: string, targetLang: string) => {
+    // Clear any pending restart
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+
+    // Don't restart if intentionally stopped
+    if (!isActiveRef.current) return;
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+
+    // Check for rapid restart loop
+    const now = Date.now();
+    restartTimestampsRef.current = restartTimestampsRef.current.filter(
+      t => now - t < RAPID_RESTART_WINDOW_MS
+    );
+
+    let delay = RESTART_DELAY_MS;
+    if (restartTimestampsRef.current.length >= MAX_RAPID_RESTARTS) {
+      console.warn(`Speech recognition restarted ${MAX_RAPID_RESTARTS} times in ${RAPID_RESTART_WINDOW_MS}ms, backing off...`);
+      delay = BACKOFF_DELAY_MS;
+      // Clear the timestamps so we don't keep backing off forever
+      restartTimestampsRef.current = [];
+    }
+
+    restartTimerRef.current = setTimeout(() => {
+      restartTimerRef.current = null;
+      if (isActiveRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
+        restartTimestampsRef.current.push(Date.now());
+        startSpeechRecognition(sourceLang, targetLang);
+      }
+    }, delay);
+  }, []);
+
   const startSpeechRecognition = (sourceLang: string, targetLang: string) => {
+    // Clean up any existing recognition instance
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null; // Prevent restart loop from old instance
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.stop();
+      } catch (e) { /* ignore */ }
+      recognitionRef.current = null;
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
 
     // Map internal language names to BCP 47 tags
-    // Simple mapping for demo
     const langMap: { [key: string]: string } = {
       'Japanese': 'ja-JP',
       'English': 'en-US',
@@ -120,26 +183,46 @@ export const useGeminiLive = () => {
 
     recognition.lang = langMap[sourceLang] || 'ja-JP';
     recognition.continuous = true;
-    recognition.interimResults = false; // We only want final results to send for translation
+    recognition.interimResults = true; // Enable interim results for real-time feedback
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setInterimText('');
+    };
 
     recognition.onresult = (event: any) => {
-      const lastResultIndex = event.results.length - 1;
-      const transcript = event.results[lastResultIndex][0].transcript;
+      // Process all results from the latest batch
+      let finalTranscript = '';
+      let interimTranscript = '';
 
-      if (transcript.trim()) {
-        setInputText(prev => {
-          // Keep last few sentences or just append? 
-          // Ideally we just want to see the latest input.
-          // Let's just show the latest recognized phrase for clarity.
-          return transcript;
-        });
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0].transcript;
+
+        if (result.isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      // Show interim text (real-time feedback while speaking)
+      if (interimTranscript) {
+        setInterimText(interimTranscript);
+      }
+
+      // Process final results — send to translation
+      if (finalTranscript.trim()) {
+        setInterimText(''); // Clear interim since we got a final result
+        setInputText(finalTranscript);
 
         // Send text to backend for translation
         if (socketRef.current?.readyState === WebSocket.OPEN) {
           socketRef.current.send(JSON.stringify({
             type: 'text_input',
             data: {
-              text: transcript,
+              text: finalTranscript,
               sourceLang,
               targetLang,
               persona: personaRef.current
@@ -150,30 +233,78 @@ export const useGeminiLive = () => {
     };
 
     recognition.onerror = (event: any) => {
-      console.error("Speech Recognition Error", event.error);
-      // Don't stop entirely on simple no-speech errors, but maybe log
+      const errorType = event.error;
+      console.warn("Speech Recognition Error:", errorType);
+
+      switch (errorType) {
+        case 'no-speech':
+          // No speech detected — normal, just let onend handle restart
+          break;
+        case 'aborted':
+          // Recognition was aborted — restart via onend
+          break;
+        case 'network':
+          // Network issue — will restart with backoff via onend
+          console.error("Speech recognition network error — will retry");
+          break;
+        case 'not-allowed':
+        case 'service-not-allowed':
+          // Permission denied — show error and stop
+          setError("マイクの使用が許可されていません。ブラウザの設定を確認してください。");
+          isActiveRef.current = false;
+          setIsListening(false);
+          return; // Don't let onend restart
+        case 'audio-capture':
+          setError("マイクが検出されませんでした。マイクを接続してください。");
+          isActiveRef.current = false;
+          setIsListening(false);
+          return;
+        default:
+          console.error("Unknown speech recognition error:", errorType);
+      }
     };
 
     recognition.onend = () => {
-      // Auto-restart if still connected
-      if (socketRef.current?.readyState === WebSocket.OPEN) {
-        try {
-          recognition.start();
-        } catch (e) { }
+      setIsListening(false);
+      setInterimText('');
+
+      // Auto-restart if we should still be listening
+      if (isActiveRef.current) {
+        scheduleRestart(sourceLang, targetLang);
       }
     };
 
     try {
       recognition.start();
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("Failed to start speech recognition:", e);
+      // If start fails, try to restart after a delay
+      if (isActiveRef.current) {
+        scheduleRestart(sourceLang, targetLang);
+      }
     }
   };
 
   const stopEverything = useCallback(() => {
+    // Mark as intentionally stopped
+    isActiveRef.current = false;
+
+    // Clear restart timer
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+
+    // Clear restart history
+    restartTimestampsRef.current = [];
+
     // Stop Recognition
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.onend = null; // Prevent restart from firing
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.stop();
+      } catch (e) { /* ignore */ }
       recognitionRef.current = null;
     }
     // Close Socket
@@ -183,12 +314,15 @@ export const useGeminiLive = () => {
     }
     setIsConnected(false);
     setIsConnecting(false);
+    setIsListening(false);
+    setInterimText('');
   }, []);
 
   const disconnect = useCallback(() => {
     stopEverything();
     setCurrentText('');
     setInputText('');
+    setInterimText('');
   }, [stopEverything]);
 
   // Cleanup on unmount
@@ -219,9 +353,11 @@ export const useGeminiLive = () => {
   return {
     isConnected,
     isConnecting,
+    isListening,
     error,
     currentText,
     inputText,
+    interimText,
     connect,
     disconnect,
     simulateVoiceInput

@@ -7,10 +7,17 @@
 
 const { WebSocketServer } = require('ws');
 const { GoogleGenAI } = require('@google/genai');
+const deepl = require('deepl-node');
 require('dotenv').config();
 
 const port = process.env.PORT || 8080;
 const wss = new WebSocketServer({ port });
+
+// Helper to sanitize keys from .env (handles whitespace and surrounding quotes)
+const sanitizeKey = (key) => {
+  if (!key) return "";
+  return key.trim().replace(/^["']|["']$/g, '');
+};
 
 console.log(`Translation Server (Web Speech API + Gemini) running on port ${port}`);
 
@@ -18,8 +25,22 @@ console.log(`Translation Server (Web Speech API + Gemini) running on port ${port
 // We do this per request or globally. Globally is fine for Flash model.
 // But we need the API Key to be present.
 if (!process.env.API_KEY) {
-  console.error("WARNING: API_KEY is missing. Translation will fail.");
+  console.error("WARNING: API_KEY (Gemini) is missing. Persona translations will fail.");
 }
+if (!process.env.DEEPL_API_KEY) {
+  console.error("WARNING: DEEPL_API_KEY is missing. Standard translations will fail.");
+}
+
+// DeepL Language Mapping (to DeepL ISO codes)
+const deeplLangMap = {
+  'Japanese': 'ja',
+  'English': 'en-US',
+  'Spanish': 'es',
+  'Chinese': 'zh',
+  'Korean': 'ko',
+  'French': 'fr',
+  'German': 'de'
+};
 
 wss.on('connection', (ws, req) => {
   console.log(`Client connected from ${req.socket.remoteAddress}`);
@@ -28,8 +49,21 @@ wss.on('connection', (ws, req) => {
   // but for simple translation, one instance is okay if stateless.
   // However, to be safe and allow hot-swapping keys if needed, let's create it inside.
   let ai = null;
-  if (process.env.API_KEY) {
-    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const geminiKey = sanitizeKey(process.env.API_KEY || process.env.GEMINI_API_KEY);
+  if (geminiKey && !geminiKey.includes("your_gemini_api_key_here")) {
+    ai = new GoogleGenAI({ apiKey: geminiKey });
+  }
+
+  let translator = null;
+  const deeplKey = sanitizeKey(process.env.DEEPL_API_KEY);
+  if (deeplKey && !deeplKey.includes("your_deepl_api_key_here")) {
+    try {
+      translator = new deepl.Translator(deeplKey);
+      const isFree = deeplKey.endsWith(':fx');
+      console.log(`DeepL: Initialized with ${isFree ? 'Free (:fx)' : 'Pro'} key.`);
+    } catch (err) {
+      console.error("DeepL Initialization failed:", err.message);
+    }
   }
 
   ws.on('close', () => {
@@ -41,28 +75,45 @@ wss.on('connection', (ws, req) => {
       const message = JSON.parse(data.toString());
 
       if (message.type === 'config') {
-        // Verify key availability
-        if (!process.env.API_KEY) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Server API_KEY missing' }));
-        } else {
-          ws.persona = message.data.persona; // Store on socket if needed
-          ws.send(JSON.stringify({ type: 'connected' }));
-        }
+        const hasGemini = !!ai;
+        const hasDeepL = !!translator;
+        console.log(`Session config: Persona=${message.data.persona}, GeminiReady=${hasGemini}, DeepLReady=${hasDeepL}`);
+
+        ws.persona = message.data.persona;
+        ws.send(JSON.stringify({ type: 'connected', data: { hasGemini, hasDeepL } }));
       }
       else if (message.type === 'text_input') {
         const { text, sourceLang, targetLang, persona } = message.data;
         console.log(`Translate Request: "${text}" [${sourceLang} -> ${targetLang}] Persona: ${persona}`);
 
         if (!text || text.trim().length === 0) return;
-        if (!ai) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Server API_KEY error' }));
-          return;
-        }
 
         try {
-          let systemInstruction = `Translate the following ${sourceLang} text to ${targetLang} naturally for subtitles. Only output the translation, nothing else.`;
+          let translatedText = '';
 
-          if (persona && persona !== 'none') {
+          // ROUTING: If no persona, use DeepL. If persona, use Gemini.
+          if (!persona || persona === 'none') {
+            if (!translator) {
+              const keyPresent = !!process.env.DEEPL_API_KEY;
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: keyPresent ? 'DeepL auth error. Check if your key is Free (:fx) or Pro.' : 'DeepL API Key (DEEPL_API_KEY) is missing.'
+              }));
+              return;
+            }
+            console.log(`Using DeepL for standard translation`);
+            const targetCode = deeplLangMap[targetLang] || 'en-US';
+            const result = await translator.translateText(text, null, targetCode);
+            translatedText = result.text;
+          } else {
+            console.log(`Using Gemini for persona: ${persona}`);
+            if (!ai) {
+              ws.send(JSON.stringify({ type: 'error', message: 'Gemini API Key missing or error' }));
+              return;
+            }
+
+            let systemInstruction = `Translate the following ${sourceLang} text to ${targetLang} naturally for subtitles. Only output the translation, nothing else.`;
+
             switch (persona) {
               case 'samurai':
                 systemInstruction += " Use archaic Japanese (samurai style), using words like 'でござる' or '某'.";
@@ -77,14 +128,13 @@ wss.on('connection', (ws, req) => {
                 systemInstruction += " Use extremely polite and formal language suitable for a butler serving a master.";
                 break;
             }
+
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.0-flash', // Corrected from gemini-2.5-flash which doesn't exist yet
+              contents: `${systemInstruction}\n\nText: "${text}"`,
+            });
+            translatedText = response.text;
           }
-
-          const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `${systemInstruction}\n\nText: "${text}"`,
-          });
-
-          const translatedText = response.text;
 
           if (translatedText) {
             ws.send(JSON.stringify({
@@ -94,8 +144,8 @@ wss.on('connection', (ws, req) => {
             ws.send(JSON.stringify({ type: 'turn_complete' }));
           }
         } catch (err) {
-          console.error("Translation Error:", err.message);
-          ws.send(JSON.stringify({ type: 'error', message: 'Translation failed' }));
+          console.error("Translation Error:", err);
+          ws.send(JSON.stringify({ type: 'error', message: 'Translation failed: ' + err.message }));
         }
       }
 

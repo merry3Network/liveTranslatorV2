@@ -12,3 +12,5 @@ services:
         sync: false
       - key: DEEPGRAM_API_KEY
         sync: false
+      - key: DEEPL_API_KEY
+        sync: false

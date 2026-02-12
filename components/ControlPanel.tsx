@@ -15,6 +15,8 @@ interface ControlPanelProps {
   setConfig: (config: TranslationConfig) => void;
   playAudio: boolean;
   setPlayAudio: (play: boolean) => void;
+  isRawMode: boolean;
+  setIsRawMode: (isRaw: boolean) => void;
   error: string | null;
   simulateVoiceInput?: (text: string, sourceLang: string, targetLang: string) => void;
 }
@@ -32,6 +34,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   setConfig,
   playAudio,
   setPlayAudio,
+  isRawMode,
+  setIsRawMode,
   error,
   simulateVoiceInput
 }) => {
@@ -128,14 +132,29 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
 
         {/* Play Audio Toggle */}
-        <div className="flex items-center justify-between bg-gray-800 p-2 rounded border border-gray-700">
-          <span className="text-sm">音声読み上げ (TTS)</span>
-          <button
-            onClick={() => setPlayAudio(!playAudio)}
-            className={`w-12 h-6 rounded-full p-1 transition-colors ${playAudio ? 'bg-emerald-500' : 'bg-gray-600'}`}
-          >
-            <div className={`w-4 h-4 bg-white rounded-full transition-transform ${playAudio ? 'translate-x-6' : ''}`} />
-          </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between bg-gray-800 p-2 rounded border border-gray-700">
+            <span className="text-sm">音声読み上げ (TTS)</span>
+            <button
+              onClick={() => setPlayAudio(!playAudio)}
+              className={`w-12 h-6 rounded-full p-1 transition-colors ${playAudio ? 'bg-emerald-500' : 'bg-gray-600'}`}
+            >
+              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${playAudio ? 'translate-x-6' : ''}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between bg-gray-800 p-2 rounded border border-gray-700">
+            <div className="flex flex-col">
+              <span className="text-sm">翻訳バイパス (Raw Mode)</span>
+              <span className="text-[10px] text-gray-400">認識した声を直接表示します</span>
+            </div>
+            <button
+              onClick={() => setIsRawMode(!isRawMode)}
+              className={`w-12 h-6 rounded-full p-1 transition-colors ${isRawMode ? 'bg-amber-500' : 'bg-gray-600'}`}
+            >
+              <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isRawMode ? 'translate-x-6' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {/* Persona Selector */}

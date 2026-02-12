@@ -25,6 +25,7 @@ export const useGeminiLive = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isRawMode, setIsRawMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentText, setCurrentText] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
@@ -43,6 +44,7 @@ export const useGeminiLive = () => {
   const restartTimestampsRef = useRef<number[]>([]);
   const sourceLangRef = useRef<string>('Japanese');
   const targetLangRef = useRef<string>('English');
+  const isRawModeRef = useRef<boolean>(false);
 
   const connect = useCallback(async ({ sourceLang, targetLang, persona, playAudio }: UseGeminiLiveProps) => {
     try {
@@ -85,7 +87,7 @@ export const useGeminiLive = () => {
             startSpeechRecognition(sourceLang, targetLang);
             break;
           case 'text':
-            if (msg.content) {
+            if (msg.content && !isRawMode) {
               currentTranscriptionRef.current = msg.content;
               setCurrentText(currentTranscriptionRef.current);
             }
@@ -217,8 +219,12 @@ export const useGeminiLive = () => {
         setInterimText(''); // Clear interim since we got a final result
         setInputText(finalTranscript);
 
-        // Send text to backend for translation
-        if (socketRef.current?.readyState === WebSocket.OPEN) {
+        // If in Raw Mode, display the final transcript directly and skip sending to server
+        if (isRawModeRef.current) {
+          currentTranscriptionRef.current = finalTranscript;
+          setCurrentText(finalTranscript);
+        } else if (socketRef.current?.readyState === WebSocket.OPEN) {
+          // Send text to backend for translation - ONLY if not in raw mode
           socketRef.current.send(JSON.stringify({
             type: 'text_input',
             data: {
@@ -325,6 +331,11 @@ export const useGeminiLive = () => {
     setInterimText('');
   }, [stopEverything]);
 
+  // Sync refs
+  useEffect(() => {
+    isRawModeRef.current = isRawMode;
+  }, [isRawMode]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -334,6 +345,13 @@ export const useGeminiLive = () => {
 
   const simulateVoiceInput = (text: string, sourceLang: string, targetLang: string) => {
     setInputText(text); // Update input text for simulation too
+
+    if (isRawModeRef.current) {
+      // In Raw Mode, just update the display locally
+      currentTranscriptionRef.current = text;
+      setCurrentText(text);
+      return;
+    }
 
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({
@@ -358,6 +376,8 @@ export const useGeminiLive = () => {
     currentText,
     inputText,
     interimText,
+    isRawMode,
+    setIsRawMode,
     connect,
     disconnect,
     simulateVoiceInput

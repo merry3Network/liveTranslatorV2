@@ -24,6 +24,8 @@ const App: React.FC = () => {
     currentText,
     inputText,
     interimText,
+    isRawMode,
+    setIsRawMode,
     connect,
     disconnect,
     simulateVoiceInput
@@ -67,6 +69,8 @@ const App: React.FC = () => {
         setConfig={setConfig}
         playAudio={playAudio}
         setPlayAudio={setPlayAudio}
+        isRawMode={isRawMode}
+        setIsRawMode={setIsRawMode}
         error={error}
         simulateVoiceInput={simulateVoiceInput}
       />

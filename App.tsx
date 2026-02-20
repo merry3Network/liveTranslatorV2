@@ -5,7 +5,6 @@ import { useGeminiLive } from './hooks/useGeminiLive';
 import { BackgroundMode, TextStyle, TranslationConfig, Persona, FontFamily } from './types';
 
 const App: React.FC = () => {
-  // App State
   const [bgMode, setBgMode] = useState<BackgroundMode>(BackgroundMode.NORMAL);
   const [textStyle, setTextStyle] = useState<TextStyle>(TextStyle.OUTLINE);
   const [outlineColor, setOutlineColor] = useState<string>('#000000');
@@ -18,7 +17,6 @@ const App: React.FC = () => {
   });
   const [playAudio, setPlayAudio] = useState(false);
 
-  // Logic Hook
   const {
     isConnected,
     isConnecting,
@@ -43,13 +41,12 @@ const App: React.FC = () => {
     });
   };
 
-  // Determine background color style
   const getBgStyle = () => {
     switch (bgMode) {
       case BackgroundMode.GREEN: return '#00FF00';
       case BackgroundMode.BLUE: return '#0000FF';
       case BackgroundMode.MAGENTA: return '#FF00FF';
-      default: return '#111827'; // Tailwind gray-900
+      default: return '#111827';
     }
   };
 
@@ -58,7 +55,6 @@ const App: React.FC = () => {
       className="relative w-screen h-screen overflow-hidden transition-colors duration-500"
       style={{ backgroundColor: getBgStyle() }}
     >
-      {/* Controls Overlay */}
       <ControlPanel
         isConnected={isConnected}
         isConnecting={isConnecting}
@@ -84,7 +80,6 @@ const App: React.FC = () => {
         simulateVoiceInput={simulateVoiceInput}
       />
 
-      {/* Main Translation Display */}
       <main className="absolute inset-0 z-0">
         <SubtitleDisplay
           text={currentText}

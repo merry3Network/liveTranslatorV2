@@ -40,7 +40,7 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
   const getTextClasses = () => {
     switch (textStyle) {
       case TextStyle.OUTLINE:
-        return 'text-white font-black tracking-wide';
+        return 'text-white tracking-wide';
       case TextStyle.BOX:
         return 'text-white bg-black/70 px-6 py-4 rounded-xl shadow-lg backdrop-blur-sm inline-block';
       default:
@@ -53,10 +53,7 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
   // Helper to determine if we should apply outline to a specific element
   const shouldApplyOutline = (isMainText: boolean) => {
     if (textStyle === TextStyle.OUTLINE) return true;
-    if (textStyle === TextStyle.BOX && !isMainText) return false; // Box style usually only applies to main text or wraps it
-
-    // For simple style, only apply outline if in chroma mode to ensure visibility against bright colors
-    if (textStyle === TextStyle.SIMPLE && bgMode !== BackgroundMode.NORMAL) return true;
+    if (textStyle === TextStyle.BOX && !isMainText) return false;
 
     return false;
   };
@@ -88,7 +85,7 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
                 className={`text-2xl md:text-3xl lg:text-4xl opacity-80 mb-2 ${bgMode === BackgroundMode.NORMAL ? 'text-gray-400' : 'text-white'}`}
                 style={{
                   fontFamily: sourceFont,
-                  ...(bgMode !== BackgroundMode.NORMAL ? getOutlineStyle() : {})
+                  ...(textStyle === TextStyle.OUTLINE ? getOutlineStyle() : {})
                 }}
               >
                 {inputText}
@@ -101,7 +98,7 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
                 className={`text-xl md:text-2xl lg:text-3xl opacity-40 italic ${bgMode === BackgroundMode.NORMAL ? 'text-gray-500' : 'text-white'}`}
                 style={{
                   fontFamily: sourceFont,
-                  ...(bgMode !== BackgroundMode.NORMAL ? getOutlineStyle() : {})
+                  ...(textStyle === TextStyle.OUTLINE ? getOutlineStyle() : {})
                 }}
               >
                 {interimText}...

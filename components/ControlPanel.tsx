@@ -1,5 +1,5 @@
 import React from 'react';
-import { BackgroundMode, TextStyle, TranslationConfig, Persona } from '../types';
+import { BackgroundMode, TextStyle, TranslationConfig, Persona, FontFamily } from '../types';
 import { Mic, MicOff, Settings, Minimize2, Maximize2, AlertCircle, User, Zap, Ghost, Cat, Coffee } from 'lucide-react';
 
 interface ControlPanelProps {
@@ -11,6 +11,12 @@ interface ControlPanelProps {
   setBgMode: (mode: BackgroundMode) => void;
   textStyle: TextStyle;
   setTextStyle: (style: TextStyle) => void;
+  outlineColor: string;
+  setOutlineColor: (color: string) => void;
+  sourceFont: FontFamily;
+  setSourceFont: (font: FontFamily) => void;
+  targetFont: FontFamily;
+  setTargetFont: (font: FontFamily) => void;
   config: TranslationConfig;
   setConfig: (config: TranslationConfig) => void;
   playAudio: boolean;
@@ -30,6 +36,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   setBgMode,
   textStyle,
   setTextStyle,
+  outlineColor,
+  setOutlineColor,
+  sourceFont,
+  setSourceFont,
+  targetFont,
+  setTargetFont,
   config,
   setConfig,
   playAudio,
@@ -51,6 +63,23 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     { code: 'German', label: 'ドイツ語' },
   ];
 
+  const outlineColors = [
+    { color: '#000000', label: '黒' },
+    { color: '#FFFFFF', label: '白' },
+    { color: '#FF0000', label: '赤' },
+    { color: '#0000FF', label: '青' },
+  ];
+
+  const fontOptions = [
+    { value: FontFamily.DEFAULT, label: 'デフォルト' },
+    { value: FontFamily.NOTO_SANS, label: 'Noto Sans JP (ゴシック)' },
+    { value: FontFamily.ZEN_KAKU, label: 'Zen Kaku Gothic (ゴシック)' },
+    { value: FontFamily.MPLUS_ROUNDED, label: 'M PLUS Rounded (丸ゴシック)' },
+    { value: FontFamily.HINA_MINCHO, label: 'Hina Mincho (明朝)' },
+    { value: FontFamily.KAISEI_DECOL, label: 'Kaisei Decol (和風・明朝)' },
+    { value: FontFamily.YUJI_SYUKU, label: 'Yuji Syuku (筆文字)' },
+  ];
+
   if (isCollapsed) {
     return (
       <button
@@ -63,7 +92,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }
 
   return (
-    <div className="fixed top-4 left-4 z-50 w-80 bg-gray-900/95 backdrop-blur-sm text-gray-100 rounded-xl shadow-2xl border border-gray-700 p-4 transition-all duration-300">
+    <div className="fixed top-4 left-4 z-50 w-80 bg-gray-900/95 backdrop-blur-sm text-gray-100 rounded-xl shadow-2xl border border-gray-700 p-4 transition-all duration-300 max-h-[90vh] overflow-y-auto">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold flex items-center gap-2">
           <Settings size={18} />
@@ -127,6 +156,30 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               disabled={isConnected}
             >
               {languages.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Fonts */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">入力フォント</label>
+            <select
+              value={sourceFont}
+              onChange={(e) => setSourceFont(e.target.value as FontFamily)}
+              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs focus:border-emerald-500 outline-none"
+            >
+              {fontOptions.map(f => <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">出力フォント</label>
+            <select
+              value={targetFont}
+              onChange={(e) => setTargetFont(e.target.value as FontFamily)}
+              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs focus:border-emerald-500 outline-none"
+            >
+              {fontOptions.map(f => <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
             </select>
           </div>
         </div>
@@ -225,6 +278,30 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 {option.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Outline Color Selector (Visible when Outline or Simple+Chroma is used) */}
+        <div>
+          <label className="block text-xs font-medium text-gray-400 mb-2">縁取り色</label>
+          <div className="flex gap-2 items-center">
+            {outlineColors.map((option) => (
+              <button
+                key={option.color}
+                onClick={() => setOutlineColor(option.color)}
+                className={`w-6 h-6 rounded border transition-all ${outlineColor === option.color ? 'border-emerald-500 scale-110' : 'border-gray-600'
+                  }`}
+                style={{ backgroundColor: option.color }}
+                title={option.label}
+              />
+            ))}
+            <input
+              type="color"
+              value={outlineColor}
+              onChange={(e) => setOutlineColor(e.target.value)}
+              className="w-6 h-6 p-0 border-0 rounded overflow-hidden cursor-pointer"
+              title="カスタム色"
+            />
           </div>
         </div>
 

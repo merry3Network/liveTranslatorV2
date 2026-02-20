@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { ControlPanel } from './components/ControlPanel';
 import { SubtitleDisplay } from './components/SubtitleDisplay';
 import { useGeminiLive } from './hooks/useGeminiLive';
-import { BackgroundMode, TextStyle, TranslationConfig, Persona } from './types';
+import { BackgroundMode, TextStyle, TranslationConfig, Persona, FontFamily } from './types';
 
 const App: React.FC = () => {
   // App State
   const [bgMode, setBgMode] = useState<BackgroundMode>(BackgroundMode.NORMAL);
   const [textStyle, setTextStyle] = useState<TextStyle>(TextStyle.OUTLINE);
+  const [outlineColor, setOutlineColor] = useState<string>('#000000');
+  const [sourceFont, setSourceFont] = useState<FontFamily>(FontFamily.DEFAULT);
+  const [targetFont, setTargetFont] = useState<FontFamily>(FontFamily.NOTO_SANS);
   const [config, setConfig] = useState<TranslationConfig>({
     sourceLang: 'Japanese',
     targetLang: 'English',
@@ -65,6 +68,12 @@ const App: React.FC = () => {
         setBgMode={setBgMode}
         textStyle={textStyle}
         setTextStyle={setTextStyle}
+        outlineColor={outlineColor}
+        setOutlineColor={setOutlineColor}
+        sourceFont={sourceFont}
+        setSourceFont={setSourceFont}
+        targetFont={targetFont}
+        setTargetFont={setTargetFont}
         config={config}
         setConfig={setConfig}
         playAudio={playAudio}
@@ -84,6 +93,9 @@ const App: React.FC = () => {
           isListening={isListening}
           bgMode={bgMode}
           textStyle={textStyle}
+          outlineColor={outlineColor}
+          sourceFont={sourceFont}
+          targetFont={targetFont}
         />
       </main>
     </div>

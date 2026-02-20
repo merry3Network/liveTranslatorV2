@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Rate limit data (persisted usage stats)
+.rate-limits.json

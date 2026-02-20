@@ -22,13 +22,13 @@ export const SubtitleDisplay: React.FC<SubtitleDisplayProps> = ({ text, inputTex
   const getTextClasses = () => {
     switch (textStyle) {
       case TextStyle.OUTLINE:
-        return 'text-white text-outline-black font-black tracking-wide';
+        return 'text-white text-outline-black tracking-wide';
       case TextStyle.BOX:
         return 'text-white bg-black/70 px-6 py-4 rounded-xl shadow-lg backdrop-blur-sm inline-block';
       default:
         // Simple style depends on background brightness
         if (bgMode === BackgroundMode.NORMAL) return 'text-gray-100';
-        return 'text-white text-outline-black'; // Default to outline on chroma colors for visibility
+        return 'text-white';
     }
   };
 

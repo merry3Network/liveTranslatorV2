@@ -1,0 +1,7 @@
+{
+  "name": "Live Translator",
+  "description": "A secure real-time voice translation tool for OBS. Requires running the local node server (server.js) for backend processing.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

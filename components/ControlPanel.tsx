@@ -1,6 +1,6 @@
 import React from 'react';
 import { BackgroundMode, TextStyle, TranslationConfig, Persona, FontFamily } from '../types';
-import { Mic, MicOff, Settings, Minimize2, Maximize2, AlertCircle, User, Zap, Ghost, Cat, Coffee } from 'lucide-react';
+import { Mic, MicOff, Settings, Minimize2, Maximize2, AlertCircle, User, Zap, Ghost, Cat, Coffee, Cpu } from 'lucide-react';
 
 interface ControlPanelProps {
   isConnected: boolean;
@@ -24,6 +24,7 @@ interface ControlPanelProps {
   isRawMode: boolean;
   setIsRawMode: (isRaw: boolean) => void;
   error: string | null;
+  localAIStatus?: { enabled: boolean; model?: string };
   simulateVoiceInput?: (text: string, sourceLang: string, targetLang: string) => void;
 }
 
@@ -49,8 +50,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   isRawMode,
   setIsRawMode,
   error,
+  localAIStatus,
   simulateVoiceInput
 }) => {
+
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
   const languages = [
@@ -107,6 +110,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         <div className="bg-red-900/50 border border-red-500 text-red-200 p-2 rounded mb-4 text-sm flex items-start gap-2">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* Local AI Status Badge */}
+      {localAIStatus?.enabled && (
+        <div className="bg-purple-900/50 border border-purple-500 text-purple-200 p-2 rounded mb-4 text-sm flex items-center gap-2">
+          <Cpu size={16} className="shrink-0" />
+          <span>🚀 ローカルAI: <strong>{localAIStatus.model || 'Ollama'}</strong></span>
         </div>
       )}
 

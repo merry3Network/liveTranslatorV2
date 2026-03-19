@@ -29,6 +29,7 @@ const App: React.FC = () => {
     interimText,
     isRawMode,
     setIsRawMode,
+    localAIStatus,
     connect,
     disconnect,
     simulateVoiceInput
@@ -81,6 +82,7 @@ const App: React.FC = () => {
         isRawMode={isRawMode}
         setIsRawMode={setIsRawMode}
         error={error}
+        localAIStatus={localAIStatus}
         simulateVoiceInput={simulateVoiceInput}
       />
 

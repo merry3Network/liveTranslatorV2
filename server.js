@@ -31,6 +31,10 @@ const parseApiKeys = () => {
 };
 
 const ENABLE_MOCK = process.env.ENABLE_MOCK === 'true';
+const ENABLE_LOCAL_AI = process.env.ENABLE_LOCAL_AI === 'true';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'phi';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434/api/generate';
+
 const GEMINI_RPM = parseInt(process.env.GEMINI_RPM || '5', 10);
 const GEMINI_RPD = parseInt(process.env.GEMINI_RPD || '20', 10);
 
@@ -38,6 +42,9 @@ const geminiKeys = parseApiKeys();
 
 console.log(`Translation Server (Web Speech API + Gemini) running on port ${port}`);
 
+if (ENABLE_LOCAL_AI) {
+  console.log(`🚀 LOCAL AI MODE ENABLED - Using Ollama (${OLLAMA_MODEL}) at ${OLLAMA_URL}`);
+}
 if (ENABLE_MOCK) {
   console.log('🎭 MOCK MODE ENABLED - No real API calls will be made');
 }
@@ -263,7 +270,53 @@ class RequestQueue {
         if (cached) {
           console.log('Cache hit!');
           translatedText = cached;
+        } else if (ENABLE_LOCAL_AI) {
+          // --- Local AI Mode: ALL translations go through Ollama ---
+          console.log(`Using Local AI (Ollama: ${OLLAMA_MODEL}) for translation [persona: ${persona || 'none'}]`);
+
+          let systemInstruction = `Translate the following ${sourceLang} text to ${targetLang} naturally for subtitles. Only output the translation, nothing else.`;
+
+          if (persona && persona !== 'none') {
+            switch (persona) {
+              case 'samurai':
+                systemInstruction += " Use archaic Japanese (samurai style), using words like 'でござる' or '某'.";
+                break;
+              case 'tsundere':
+                systemInstruction += " Use a tsundere personality (harsh but sometimes soft), common in anime.";
+                break;
+              case 'cat':
+                systemInstruction += " Translate with a cat-like personality, adding 'にゃ' or 'にゃん' to sentences.";
+                break;
+              case 'butler':
+                systemInstruction += " Use extremely polite and formal language suitable for a butler serving a master.";
+                break;
+            }
+          }
+
+          try {
+            const response = await fetch(OLLAMA_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: OLLAMA_MODEL,
+                prompt: `${systemInstruction}\n\nText: "${text}"`,
+                stream: false
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error(`Ollama API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            translatedText = data.response;
+          } catch (err) {
+            console.error("Local AI (Ollama) failed:", err.message);
+            ws.send(JSON.stringify({ type: 'error', message: `ローカルAI (Ollama) に接続できません。Ollamaが起動しているか確認してください。(${err.message})` }));
+            return;
+          }
         } else if (!persona || persona === 'none') {
+          // --- Standard (DeepL) Mode ---
           if (!translator) {
             const keyPresent = !!process.env.DEEPL_API_KEY;
             ws.send(JSON.stringify({
@@ -277,9 +330,11 @@ class RequestQueue {
           const result = await translator.translateText(text, null, targetCode);
           translatedText = result.text;
         } else {
+          // --- Gemini / Mock Mode for persona translations ---
           if (ENABLE_MOCK) {
             console.log(`Using MOCK for persona: ${persona}`);
             translatedText = mockTranslate(text, sourceLang, targetLang, persona);
+
           } else {
             const rateStatus = keyPool.getAggregatedStatus();
 
@@ -441,12 +496,14 @@ wss.on('connection', (ws, req) => {
       if (message.type === 'config') {
         const hasGemini = keyPool.hasKeys() || ENABLE_MOCK;
         const hasDeepL = !!translator;
-        console.log(`Session config: Persona=${message.data.persona}, GeminiReady=${hasGemini}, DeepLReady=${hasDeepL}, MockMode=${ENABLE_MOCK}`);
+        console.log(`Session config: Persona=${message.data.persona}, LocalAI=${ENABLE_LOCAL_AI}, GeminiReady=${hasGemini}, DeepLReady=${hasDeepL}, MockMode=${ENABLE_MOCK}`);
 
         ws.persona = message.data.persona;
         ws.send(JSON.stringify({
           type: 'connected',
           data: {
+            hasLocalAI: ENABLE_LOCAL_AI,
+            ollamaModel: OLLAMA_MODEL,
             hasGemini,
             hasDeepL,
             mockMode: ENABLE_MOCK,

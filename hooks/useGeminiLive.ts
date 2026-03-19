@@ -16,6 +16,7 @@ export const useGeminiLive = () => {
   const [currentText, setCurrentText] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
   const [interimText, setInterimText] = useState<string>('');
+  const [localAIStatus, setLocalAIStatus] = useState<{ enabled: boolean; model?: string }>({ enabled: false });
 
   const socketRef = useRef<WebSocket | null>(null);
   const currentTranscriptionRef = useRef<string>('');
@@ -109,6 +110,11 @@ export const useGeminiLive = () => {
           case 'connected':
             setIsConnected(true);
             setIsConnecting(false);
+            if (msg.data?.hasLocalAI) {
+              setLocalAIStatus({ enabled: true, model: msg.data.ollamaModel });
+            } else {
+              setLocalAIStatus({ enabled: false });
+            }
             startListening(sourceLang);
             break;
           case 'text':
@@ -190,6 +196,7 @@ export const useGeminiLive = () => {
     interimText,
     isRawMode,
     setIsRawMode,
+    localAIStatus,
     connect,
     disconnect,
     simulateVoiceInput

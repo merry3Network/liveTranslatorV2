@@ -10,7 +10,7 @@ const { GoogleGenAI } = require('@google/genai');
 const deepl = require('deepl-node');
 require('dotenv').config();
 
-const port = process.env.PORT || 8080;
+const port = process.env.PORT || 3001;
 const wss = new WebSocketServer({ port });
 
 const sanitizeKey = (key) => {

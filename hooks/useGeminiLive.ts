@@ -92,10 +92,12 @@ export const useGeminiLive = () => {
       sourceLangRef.current = sourceLang;
       targetLangRef.current = targetLang;
 
-      let wsUrl = 'ws://localhost:8080';
+      let wsUrl = 'ws://localhost:3001';
       if (import.meta.env.VITE_BACKEND_URL) {
         wsUrl = import.meta.env.VITE_BACKEND_URL;
       }
+
+      console.log(`Connecting to translation engine at: ${wsUrl}`);
 
       const socket = new WebSocket(wsUrl);
       socketRef.current = socket;
@@ -134,7 +136,7 @@ export const useGeminiLive = () => {
 
       socket.onerror = (e) => {
         console.error("Engine Connection Error", e);
-        setError("翻訳エンジンへの接続に失敗しました。ネットワーク設定を確認してください。");
+        setError(`翻訳エンジンへの接続に失敗しました (${wsUrl})。ネットワーク設定を確認してください。`);
         stopEverything();
       };
 

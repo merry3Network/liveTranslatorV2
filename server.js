@@ -40,6 +40,36 @@ const GEMINI_RPD = parseInt(process.env.GEMINI_RPD || '20', 10);
 
 const geminiKeys = parseApiKeys();
 
+/**
+ * Helper to fetch with retry for transient network errors (common in tunnel setups)
+ */
+async function fetchWithRetry(url, options, maxRetries = 3, delay = 1000) {
+  let lastError;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response;
+      
+      // Don't retry for 4xx errors (except 429/408)
+      if (response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) {
+        throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+      }
+      
+      lastError = new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+    } catch (err) {
+      lastError = err;
+      // Don't retry for certain fatal errors if needed, but for now we retry most
+    }
+    
+    if (i < maxRetries - 1) {
+      const wait = delay * Math.pow(2, i); // Exponential backoff
+      console.log(`[Retry] Attempt ${i + 1} failed. Retrying in ${wait}ms... (${lastError.message})`);
+      await new Promise(res => setTimeout(res, wait));
+    }
+  }
+  throw lastError;
+}
+
 console.log(`Translation Server (Web Speech API + Gemini) running on port ${port}`);
 
 if (ENABLE_LOCAL_AI) {
@@ -294,25 +324,38 @@ class RequestQueue {
           }
 
           try {
-            const response = await fetch(OLLAMA_URL, {
+            const headers = { 'Content-Type': 'application/json' };
+            if (process.env.OLLAMA_API_KEY) {
+              headers['X-API-KEY'] = process.env.OLLAMA_API_KEY;
+            }
+
+            const response = await fetchWithRetry(OLLAMA_URL, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({
                 model: OLLAMA_MODEL,
                 prompt: `${systemInstruction}\n\nText: "${text}"`,
                 stream: false
               })
-            });
-
-            if (!response.ok) {
-              throw new Error(`Ollama API error: ${response.status}`);
-            }
+            }, 3, 1000); // 3 retries, start with 1s delay
 
             const data = await response.json();
             translatedText = data.response;
           } catch (err) {
-            console.error("Local AI (Ollama) failed:", err.message);
-            ws.send(JSON.stringify({ type: 'error', message: `ローカルAI (Ollama) に接続できません。Ollamaが起動しているか確認してください。(${err.message})` }));
+            console.error("Local AI (Ollama) failed after retries:", err.message);
+            const isTimeout = err.message.includes('ETIMEDOUT') || err.message.includes('timeout');
+            const isConnectionRefused = err.message.includes('ECONNREFUSED');
+            
+            let userMessage = `ローカルAI (Ollama) に接続できません。`;
+            if (isConnectionRefused) {
+              userMessage += "Ollamaが起動しているか確認してください。";
+            } else if (isTimeout) {
+              userMessage += "通信タイムアウトが発生しました。トンネルの状態を確認してください。";
+            } else {
+              userMessage += `(${err.message})`;
+            }
+            
+            ws.send(JSON.stringify({ type: 'error', message: userMessage }));
             return;
           }
         } else if (!persona || persona === 'none') {

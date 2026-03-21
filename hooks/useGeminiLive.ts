@@ -16,7 +16,7 @@ export const useGeminiLive = () => {
   const [currentText, setCurrentText] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
   const [interimText, setInterimText] = useState<string>('');
-  const [localAIStatus, setLocalAIStatus] = useState<{ enabled: boolean; model?: string }>({ enabled: false });
+  const [localAIStatus, setLocalAIStatus] = useState<{ enabled: boolean; model?: string; isRemote?: boolean }>({ enabled: false });
 
   const socketRef = useRef<WebSocket | null>(null);
   const currentTranscriptionRef = useRef<string>('');
@@ -111,7 +111,7 @@ export const useGeminiLive = () => {
             setIsConnected(true);
             setIsConnecting(false);
             if (msg.data?.hasLocalAI) {
-              setLocalAIStatus({ enabled: true, model: msg.data.ollamaModel });
+              setLocalAIStatus({ enabled: true, model: msg.data.ollamaModel, isRemote: msg.data.isRemoteOllama });
             } else {
               setLocalAIStatus({ enabled: false });
             }
@@ -133,8 +133,8 @@ export const useGeminiLive = () => {
       };
 
       socket.onerror = (e) => {
-        console.error("WebSocket Error", e);
-        setError("接続失敗。バックエンドサーバーが起動しているか確認してください。");
+        console.error("Engine Connection Error", e);
+        setError("翻訳エンジンへの接続に失敗しました。ネットワーク設定を確認してください。");
         stopEverything();
       };
 

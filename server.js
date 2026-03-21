@@ -301,8 +301,8 @@ class RequestQueue {
           console.log('Cache hit!');
           translatedText = cached;
         } else if (ENABLE_LOCAL_AI) {
-          // --- Local AI Mode: ALL translations go through Ollama ---
-          console.log(`Using Local AI (Ollama: ${OLLAMA_MODEL}) for translation [persona: ${persona || 'none'}]`);
+          // --- Proprietary Engine Mode ---
+          console.log(`Using Precision Engine (${OLLAMA_MODEL}) [Context: ${persona || 'none'}]`);
 
           let systemInstruction = `Translate the following ${sourceLang} text to ${targetLang} naturally for subtitles. Only output the translation, nothing else.`;
 
@@ -342,13 +342,13 @@ class RequestQueue {
             const data = await response.json();
             translatedText = data.response;
           } catch (err) {
-            console.error("Local AI (Ollama) failed after retries:", err.message);
+            console.error("Precision Engine failed after retries:", err.message);
             const isTimeout = err.message.includes('ETIMEDOUT') || err.message.includes('timeout');
             const isConnectionRefused = err.message.includes('ECONNREFUSED');
             
-            let userMessage = `ローカルAI (Ollama) に接続できません。`;
+            let userMessage = `翻訳エンジン (Precision Engine) に接続できません。`;
             if (isConnectionRefused) {
-              userMessage += "Ollamaが起動しているか確認してください。";
+              userMessage += "エンジンの起動状態を確認してください。";
             } else if (isTimeout) {
               userMessage += "通信タイムアウトが発生しました。トンネルの状態を確認してください。";
             } else {
@@ -364,11 +364,11 @@ class RequestQueue {
             const keyPresent = !!process.env.DEEPL_API_KEY;
             ws.send(JSON.stringify({
               type: 'error',
-              message: keyPresent ? 'DeepL auth error. Check if your key is Free (:fx) or Pro.' : 'DeepL API Key (DEEPL_API_KEY) is missing.'
+              message: keyPresent ? 'Engine auth error (Standard).' : 'Engine API Key is missing (Standard).'
             }));
             return;
           }
-          console.log(`Using DeepL for standard translation`);
+          console.log(`Using Standard Engine for translation`);
           const targetCode = deeplLangMap[targetLang] || 'en-US';
           const result = await translator.translateText(text, null, targetCode);
           translatedText = result.text;
@@ -394,8 +394,8 @@ class RequestQueue {
                   minuteRemaining: rateStatus.minuteRemaining,
                   dayRemaining: rateStatus.dayRemaining,
                   message: isDailyLimit
-                    ? `全APIキーの1日のリクエスト上限に達しました。`
-                    : `1分間のリクエスト上限に達しました。${Math.ceil(rateStatus.waitTime / 1000)}秒お待ちください。`
+                    ? `エンジンのリクエスト上限に達しました（1日）。`
+                    : `エンジンのリクエスト上限に達しました（1分）。${Math.ceil(rateStatus.waitTime / 1000)}秒お待ちください。`
                 }
               }));
               return;

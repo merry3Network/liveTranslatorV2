@@ -24,7 +24,7 @@ interface ControlPanelProps {
   isRawMode: boolean;
   setIsRawMode: (isRaw: boolean) => void;
   error: string | null;
-  localAIStatus?: { enabled: boolean; model?: string };
+  localAIStatus?: { enabled: boolean; model?: string; isRemote?: boolean };
   simulateVoiceInput?: (text: string, sourceLang: string, targetLang: string) => void;
 }
 
@@ -99,7 +99,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-bold flex items-center gap-2">
           <Settings size={18} />
-          OBS 翻訳ツール
+          LiveTranslate Pro
         </h2>
         <button onClick={() => setIsCollapsed(true)} className="text-gray-400 hover:text-white">
           <Minimize2 size={18} />
@@ -115,9 +115,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
       {/* Local AI Status Badge */}
       {localAIStatus?.enabled && (
-        <div className="bg-purple-900/50 border border-purple-500 text-purple-200 p-2 rounded mb-4 text-sm flex items-center gap-2">
-          <Cpu size={16} className="shrink-0" />
-          <span>🚀 ローカルAI: <strong>{localAIStatus.model || 'Ollama'}</strong></span>
+        <div className={`border p-2 rounded mb-4 text-sm flex items-center gap-2 ${localAIStatus.isRemote ? 'bg-emerald-900/50 border-emerald-500 text-emerald-200' : 'bg-emerald-900/50 border-emerald-500 text-emerald-200'}`}>
+          <Zap size={16} className="shrink-0" />
+          <span>🚀 稼働中: <strong>Precision Engine v2.0</strong></span>
         </div>
       )}
 
@@ -223,7 +223,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         {/* Persona Selector */}
         <div>
-          <label className="block text-xs font-medium text-gray-400 mb-2">属性 (ペルソナ)</label>
+          <label className="block text-xs font-medium text-gray-400 mb-2">翻訳トーン設定 (Context Adaptive)</label>
           <div className="grid grid-cols-5 gap-1">
             {[
               { persona: Persona.NONE, icon: <User size={14} />, label: 'なし' },

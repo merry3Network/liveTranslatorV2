@@ -2,34 +2,63 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Gemini Live Translator (リアルタイム翻訳アプリ)
+# LiveTranslator (リアルタイム音声翻訳アプリ)
 
-このプロジェクトは、Google Gemini 2.0 Flash と Deepgram Nova 2 を組み合わせたリアルタイム音声翻訳アプリです。
-OBS のオーバーレイとして使用することを想定していますが、単体のウェブアプリとしても動作します。
+このプロジェクトは、**ブラウザ標準の音声認識 (Web Speech API)** と **各種AIエンジン (Ollama / Gemini / DeepL)** を組み合わせた、完全無料運用が可能なリアルタイム翻訳ツールです。
+OBS のオーバーレイとして配信字幕に使用することを想定していますが、単体のウェブアプリとしても動作します。
 
-## 主な機能
-- **超低遅延**の音声認識 (Deepgram) と翻訳 (Gemini)
-- **OBS 対応**: 背景透過モード搭載 (グリーン/ブルー/マゼンタバック)
-- **字幕スタイル変更**: アウトライン、ボックス、ゴーストなどのスタイル選択
-- **双方向性は未実装**: 現状は「入力音声 -> 翻訳字幕」の一方通行です。
+## 🌟 主な機能
 
-## クイックリンク
-- [🔰 初心者向けセットアップガイド (SETUP_GUIDE_JA.md)](./SETUP_GUIDE_JA.md) - まずはこちら！
-- [🚀 デプロイガイド (README_DEPLOY.md)](./README_DEPLOY.md) - インターネット公開手順
-- [AI Studio で見る](https://ai.studio/apps/drive/1fn9tWkEgT4VNMlhRFtS07sORtowt_56U)
+- **完全無料運用**: ブラウザ標準の Speech API を使用するため、音声認識にコストがかかりません。
+- **ローカルAI対応 (Ollama)**: 推論を自宅のPC (Local GPU) で完結させることで、プライバシー保護と低コストを実現。
+- **ハイブリッド構成**: クラウド (Gemini/DeepL) とローカル推論を環境に合わせて切り替え可能。
+- **高耐久性**: ネットワーク瞬断時などの自動リトライ・再試行ロジックを搭載。
+- **OBS 完全対応**: クロマキー背景 (グリーンバック等) や縁取り字幕、フォント変更機能を搭載。
 
-## ローカルでの実行方法
+## 🛠 テクノロジースタック
 
-**前提条件:** Node.js がインストールされていること
+| 役割 | 技術 | 備考 |
+|---|---|---|
+| **音声認識 (STT)** | **Web Speech API** | ブラウザ内蔵機能。完全無料。 |
+| **翻訳エンジン** | **Ollama** / **Gemini** / **DeepL** | ローカル推論とクラウドを選択可能。 |
+| **フロントエンド** | React (Vite) / Tailwind CSS | 高速なUIとカスタマイズ性。 |
+| **バックエンド** | Node.js (ws) | WebSocket による低遅延メッセージ中継。 |
 
-1. 依存関係のインストール:
-   ```bash
-   npm install
-   ```
-2. 環境変数の設定:
-   - `.env.local` ファイルを作成し、`GEMINI_API_KEY` と `DEEPGRAM_API_KEY` を設定してください。
-3. アプリの起動:
-   ```bash
-   npm run dev
-   ```
+## 🚀 クイックスタート
+
+### 1. 準備
+Node.js (>=18) がインストールされていることを確認してください。
+
+### 2. セットアップ
+```bash
+npm install
+cp .env.example .env
+```
+`.env` を開き、使用したいエンジンの API キーを設定してください。
+
+### 3. ローカルAI (Ollama) を使用する場合
+Ollama をインストールし、モデル（`gemma2:2b` 推奨）をダウンロードしてください。
+```bash
+brew install ollama
+# サービス開始後
+ollama pull gemma2:2b
+```
+`.env` の `ENABLE_LOCAL_AI=true` に設定することで有効になります。
+
+### 4. 実行
+```bash
+# バックエンドサーバーの起動 (Terminal 1)
+npm start
+
+# フロントエンドの開発サーバー起動 (Terminal 2)
+npm run dev:frontend
+```
+ブラウザで `http://localhost:5173` を開いてください。
+
+## 📖 詳細ガイド
+- [🔰 セットアップ詳細手順 (SETUP_GUIDE_JA.md)](./SETUP_GUIDE_JA.md)
+- [🚀 デプロイガイド (README_DEPLOY.md)](./README_DEPLOY.md)
+
+---
+Created by Antigravity (Google DeepMind)
 

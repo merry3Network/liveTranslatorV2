@@ -8,6 +8,7 @@
 const { WebSocketServer } = require('ws');
 const { GoogleGenAI } = require('@google/genai');
 const deepl = require('deepl-node');
+const { PERSONA_PROFILES, BASE_INSTRUCTION } = require('./personae');
 require('dotenv').config();
 
 const port = process.env.PORT || 3001;
@@ -256,6 +257,38 @@ class TranslationCache {
 
 const translationCache = new TranslationCache();
 
+class SessionManager {
+  constructor(maxHistory = 5) {
+    this.history = new Map(); // ws -> [{input, output}]
+    this.maxHistory = maxHistory;
+  }
+
+  getHistory(ws) {
+    return this.history.get(ws) || [];
+  }
+
+  addEntry(ws, input, output) {
+    const h = this.getHistory(ws);
+    h.push({ input, output });
+    if (h.length > this.maxHistory) h.shift();
+    this.history.set(ws, h);
+  }
+
+  clear(ws) {
+    this.history.delete(ws);
+  }
+
+  formatHistoryForPrompt(ws) {
+    const h = this.getHistory(ws);
+    if (h.length === 0) return "";
+    return "\n--- Recent Conversation Context ---\n" + 
+      h.map(e => `Input: "${e.input}"\nTranslation: "${e.output}"`).join("\n---\n") + 
+      "\n----------------------------------\n";
+  }
+}
+
+const sessionManager = new SessionManager();
+
 class RequestQueue {
   constructor() {
     this.queue = [];
@@ -304,24 +337,16 @@ class RequestQueue {
           // --- Proprietary Engine Mode ---
           console.log(`Using Precision Engine (${OLLAMA_MODEL}) [Context: ${persona || 'none'}]`);
 
-          let systemInstruction = `Translate the following ${sourceLang} text to ${targetLang} naturally for subtitles. Only output the translation, nothing else.`;
+          const profile = PERSONA_PROFILES[persona];
+          let systemInstruction = BASE_INSTRUCTION + (profile ? `\nPersona Profile: ${profile.description}\nRules:\n${profile.rules.map(r => "- " + r).join("\n")}` : "");
+          
+          let fullPrompt = `${systemInstruction}\n\n${sessionManager.formatHistoryForPrompt(ws)}`;
 
-          if (persona && persona !== 'none') {
-            switch (persona) {
-              case 'samurai':
-                systemInstruction += " Use archaic Japanese (samurai style), using words like 'でござる' or '某'.";
-                break;
-              case 'tsundere':
-                systemInstruction += " Use a tsundere personality (harsh but sometimes soft), common in anime.";
-                break;
-              case 'cat':
-                systemInstruction += " Translate with a cat-like personality, adding 'にゃ' or 'にゃん' to sentences.";
-                break;
-              case 'butler':
-                systemInstruction += " Use extremely polite and formal language suitable for a butler serving a master.";
-                break;
-            }
+          if (profile && profile.examples) {
+            fullPrompt += "\nExamples of Persona Style:\n" + profile.examples.map(ex => `Input: "${ex.input}" -> Output: "${ex.output}"`).join("\n");
           }
+
+          fullPrompt += `\n\nTarget Language: ${targetLang}\nCurrent Input: "${text}"\nNatural Persona Translation:`;
 
           try {
             const headers = { 'Content-Type': 'application/json' };
@@ -334,7 +359,7 @@ class RequestQueue {
               headers,
               body: JSON.stringify({
                 model: OLLAMA_MODEL,
-                prompt: `${systemInstruction}\n\nText: "${text}"`,
+                prompt: fullPrompt,
                 stream: false
               })
             }, 3, 1000); // 3 retries, start with 1s delay
@@ -418,27 +443,21 @@ class RequestQueue {
 
             console.log(`Using Gemini for persona: ${persona} (Key #${keyItem.index + 1})`);
 
-            let systemInstruction = `Translate the following ${sourceLang} text to ${targetLang} naturally for subtitles. Only output the translation, nothing else.`;
+            const profile = PERSONA_PROFILES[persona];
+            let systemInstruction = BASE_INSTRUCTION + (profile ? `\nPersona Profile: ${profile.description}\nRules:\n${profile.rules.map(r => "- " + r).join("\n")}` : "");
+            
+            let fullPrompt = `${systemInstruction}\n\n${sessionManager.formatHistoryForPrompt(ws)}`;
 
-            switch (persona) {
-              case 'samurai':
-                systemInstruction += " Use archaic Japanese (samurai style), using words like 'でござる' or '某'.";
-                break;
-              case 'tsundere':
-                systemInstruction += " Use a tsundere personality (harsh but sometimes soft), common in anime.";
-                break;
-              case 'cat':
-                systemInstruction += " Translate with a cat-like personality, adding 'にゃ' or 'にゃん' to sentences.";
-                break;
-              case 'butler':
-                systemInstruction += " Use extremely polite and formal language suitable for a butler serving a master.";
-                break;
+            if (profile && profile.examples) {
+              fullPrompt += "\nExamples of Persona Style:\n" + profile.examples.map(ex => `Input: "${ex.input}" -> Output: "${ex.output}"`).join("\n");
             }
+
+            fullPrompt += `\n\nTarget Language: ${targetLang}\nCurrent Input: "${text}"\nNatural Persona Translation:`;
 
             try {
               const response = await keyItem.client.models.generateContent({
                 model: 'gemini-2.0-flash',
-                contents: `${systemInstruction}\n\nText: "${text}"`,
+                contents: fullPrompt,
               });
 
               keyItem.limiter.record();
@@ -458,7 +477,7 @@ class RequestQueue {
                   try {
                     const retryResponse = await retryKey.client.models.generateContent({
                       model: 'gemini-2.0-flash',
-                      contents: `${systemInstruction}\n\nText: "${text}"`,
+                      contents: fullPrompt,
                     });
                     retryKey.limiter.record();
                     translatedText = retryResponse.text;
@@ -501,6 +520,9 @@ class RequestQueue {
             type: 'text',
             content: translatedText
           }));
+          if (persona && persona !== 'none') {
+            sessionManager.addEntry(ws, text, translatedText);
+          }
           ws.send(JSON.stringify({ type: 'turn_complete' }));
         }
       } catch (err) {
@@ -530,6 +552,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', () => {
     console.log('Client disconnected');
+    sessionManager.clear(ws);
   });
 
   ws.on('message', async (data) => {
